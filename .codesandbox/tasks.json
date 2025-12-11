@@ -1,0 +1,31 @@
+{
+  "$schema": "https://codesandbox.io/schemas/tasks.json",
+  "setupTasks": [
+    {
+      "name": "Install Dependencies",
+      "command": "npm install"
+    },
+    {
+      "name": "Generate Prisma Client",
+      "command": "npx prisma generate"
+    },
+    {
+      "name": "Run Migrations",
+      "command": "npx prisma migrate deploy"
+    },
+    {
+      "name": "Seed Database",
+      "command": "npx prisma db seed"
+    }
+  ],
+  "tasks": {
+    "dev": {
+      "name": "Dev Server",
+      "command": "npm run dev",
+      "runAtStart": true,
+      "preview": {
+        "port": 3000
+      }
+    }
+  }
+}

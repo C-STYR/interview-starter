@@ -11,23 +11,24 @@
   "dependencies": {
     "@prisma/client": "^6.19.1",
     "better-auth": "^1.4.6",
-    "next": "16.0.8",
+    "next": "^15.5.7",
     "prisma": "^6.19.1",
-    "react": "19.2.1",
-    "react-dom": "19.2.1"
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
+    "@types/react": "^18.3.27",
+    "@types/react-dom": "^18.3.7",
     "eslint": "^9",
-    "eslint-config-next": "16.0.8",
+    "eslint-config-next": "^15.5.7",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
     "typescript": "^5"
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
-  }
+  },
+  "packageManager": "pnpm@10.20.0+sha512.cf9998222162dd85864d0a8102e7892e7ba4ceadebbf5a31f9c2fce48dfce317a9c53b9f6464d1ef9042cba2e02ae02a9f7c143a2b438cd93c91840f0192b9dd"
 }

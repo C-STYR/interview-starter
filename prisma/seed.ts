@@ -1,15 +1,7 @@
 import { PrismaClient } from "@prisma/client";
-import { scryptSync, randomBytes } from "crypto";
+import { hashPassword } from "better-auth/crypto";
 
 const prisma = new PrismaClient();
-
-// Better Auth uses scrypt for password hashing
-// Format: hash:salt (both hex encoded)
-function hashPassword(password: string): string {
-  const salt = randomBytes(16).toString("hex");
-  const hash = scryptSync(password, salt, 64).toString("hex");
-  return `${hash}:${salt}`;
-}
 
 // Helper to create dates spread over the past N days
 function randomDateInPast(maxDaysAgo: number): Date {
@@ -29,6 +21,10 @@ async function main() {
   await prisma.verification.deleteMany();
   await prisma.user.deleteMany();
   await prisma.organization.deleteMany();
+
+  // Hash the password once using Better Auth's hasher
+  const hashedPassword = await hashPassword("password");
+  console.log("Password hashed successfully");
 
   // Create organizations with fixed UUIDs for consistency
   const acmeOrg = await prisma.organization.create({
@@ -95,7 +91,7 @@ async function main() {
           userId: user.id,
           accountId: user.id,
           providerId: "credential",
-          password: hashPassword("password"),
+          password: hashedPassword,
         },
       });
       console.log(`Created login account for: ${userData.email}`);
@@ -127,7 +123,7 @@ async function main() {
           userId: user.id,
           accountId: user.id,
           providerId: "credential",
-          password: hashPassword("password"),
+          password: hashedPassword,
         },
       });
       console.log(`Created login account for: ${userData.email}`);

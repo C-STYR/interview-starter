@@ -6,17 +6,15 @@ A minimal Next.js application for technical interviews. This is a simple user ma
 
 - Next.js 15 (Pages Router)
 - TypeScript
-- Prisma ORM
-- PostgreSQL
+- Prisma ORM with SQLite
 - Tailwind CSS
 - Better Auth
 
-## Local Setup (Docker)
+## Setup
 
 ### Prerequisites
 
 - Node.js 18+
-- Docker and Docker Compose
 
 ### Steps
 
@@ -27,45 +25,27 @@ A minimal Next.js application for technical interviews. This is a simple user ma
    npm install
    ```
 
-2. **Start PostgreSQL:**
-   ```bash
-   docker-compose up -d
-   ```
-
-3. **Set up environment:**
+2. **Set up environment:**
    ```bash
    cp .env.example .env
    ```
 
-4. **Run database migrations:**
+3. **Run database migrations:**
    ```bash
    npx prisma migrate dev
    ```
 
-5. **Seed the database:**
+4. **Seed the database:**
    ```bash
    npx prisma db seed
    ```
 
-6. **Start the dev server:**
+5. **Start the dev server:**
    ```bash
    npm run dev
    ```
 
-7. **Open http://localhost:3000**
-
-## CodeSandbox Setup
-
-For interviews using CodeSandbox:
-
-1. Create a free PostgreSQL database at [Neon](https://neon.tech)
-2. Import this repository to CodeSandbox
-3. Add environment variables in CodeSandbox project settings:
-   - `DATABASE_URL` - Your Neon connection string
-   - `BETTER_AUTH_SECRET` - Any random string
-   - `BETTER_AUTH_URL` - The CodeSandbox preview URL
-   - `NEXT_PUBLIC_APP_URL` - Same as above
-4. The setup tasks will run automatically
+6. **Open http://localhost:3000**
 
 ## Test Credentials
 
@@ -126,10 +106,9 @@ interview-starter/
 │   ├── prisma.ts               # Prisma client
 │   ├── auth.ts                 # Better Auth server config
 │   └── auth-client.ts          # Better Auth client
-├── prisma/
-│   ├── schema.prisma
-│   └── seed.ts
-└── docker-compose.yml
+└── prisma/
+    ├── schema.prisma
+    └── seed.ts
 ```
 
 ## Available Scripts

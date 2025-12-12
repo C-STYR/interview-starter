@@ -6,12 +6,8 @@
       "command": "npm install"
     },
     {
-      "name": "Generate Prisma Client",
-      "command": "npx prisma generate"
-    },
-    {
-      "name": "Run Migrations",
-      "command": "npx prisma migrate deploy"
+      "name": "Setup Database",
+      "command": "npx prisma db push"
     },
     {
       "name": "Seed Database",

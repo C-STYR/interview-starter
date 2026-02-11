@@ -30,11 +30,27 @@ model User {
   org            Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
   lastActivityAt DateTime?
 
+  // Audit fields
+  createdBy      String?
+  createdByUser  User?         @relation("UserCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  updatedBy      String?
+  updatedByUser  User?         @relation("UserUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+  deletedBy      String?
+  deletedByUser  User?         @relation("UserDeletedBy", fields: [deletedBy], references: [id], onDelete: SetNull)
+  deletedAt      DateTime?
+
   // Better Auth relations
   sessions Session[]
   accounts Account[]
 
+  // Audit relations (users created/updated/deleted by this user)
+  usersCreated User[] @relation("UserCreatedBy")
+  usersUpdated User[] @relation("UserUpdatedBy")
+  usersDeleted User[] @relation("UserDeletedBy")
+
   @@index([orgId])
+  @@index([createdBy])
+  @@index([deletedAt])
 }
 
 // Better Auth required tables
@@ -74,4 +90,20 @@ model Verification {
   expiresAt  DateTime
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+}
+
+// Transactional Outbox Pattern for reliable event processing
+model OutboxEvent {
+  id          String   @id @default(uuid())
+  aggregateId String   // The ID of the entity (e.g., userId, orgId)
+  eventType   String   // Event name (e.g., "user.created", "user.updated")
+  payload     String   // JSON payload with event data
+  processed   Boolean  @default(false)
+  processedAt DateTime?
+  attempts    Int      @default(0)
+  lastError   String?
+  createdAt   DateTime @default(now())
+
+  @@index([processed, createdAt])
+  @@index([eventType, processed])
 }

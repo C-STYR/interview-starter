@@ -41,6 +41,12 @@ export default async function handler(
     return res.status(404).json({ error: "User not found" });
   }
 
+  // Check if user is soft-deleted (unless specifically including deleted)
+  const includeDeleted = req.query.includeDeleted === "true";
+  if (user.deletedAt && !includeDeleted) {
+    return res.status(404).json({ error: "User not found" });
+  }
+
   if (req.method === "GET") {
     return res.status(200).json(user);
   }
@@ -51,8 +57,18 @@ export default async function handler(
       return res.status(400).json({ error: "Cannot delete yourself" });
     }
 
-    await prisma.user.delete({
+    // Check if already soft-deleted
+    if (user.deletedAt) {
+      return res.status(400).json({ error: "User already deleted" });
+    }
+
+    // Soft delete: set deletedAt and deletedBy
+    await prisma.user.update({
       where: { id },
+      data: {
+        deletedAt: new Date(),
+        deletedBy: currentUser.id,
+      },
     });
 
     return res.status(200).json({ message: "User deleted" });

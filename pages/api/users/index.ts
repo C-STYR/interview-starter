@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { createOutboxEvent } from "@/lib/outbox";
 
 export default async function handler(
   req: NextApiRequest,
@@ -25,8 +26,15 @@ export default async function handler(
   }
 
   if (req.method === "GET") {
+    // Optional query param to include deleted users (admin feature)
+    const includeDeleted = req.query.includeDeleted === "true";
+
     const users = await prisma.user.findMany({
-      where: { orgId: currentUser.orgId },
+      where: {
+        orgId: currentUser.orgId,
+        // Filter out soft-deleted users by default
+        deletedAt: includeDeleted ? undefined : null,
+      },
       orderBy: { createdAt: "desc" },
     });
     return res.status(200).json(users);
@@ -48,13 +56,34 @@ export default async function handler(
       return res.status(400).json({ error: "Email already exists" });
     }
 
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        role: role || "member",
-        orgId: currentUser.orgId,
-      },
+    // Create user with audit fields and outbox event in a transaction
+    const user = await prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
+          name,
+          email,
+          role: role || "member",
+          orgId: currentUser.orgId,
+          // Audit fields
+          createdBy: currentUser.id,
+          updatedBy: null,
+          deletedBy: null,
+          deletedAt: null,
+        },
+      });
+
+      // Create outbox event for welcome email
+      await createOutboxEvent(tx, {
+        aggregateId: newUser.id,
+        eventType: 'user.created',
+        payload: {
+          userId: newUser.id,
+          email: newUser.email,
+          name: newUser.name,
+        },
+      });
+
+      return newUser;
     });
 
     return res.status(201).json(user);

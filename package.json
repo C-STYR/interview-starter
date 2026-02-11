@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "outbox:process": "tsx scripts/run-outbox-processor.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.1",
@@ -25,6 +26,7 @@
     "eslint-config-next": "^15.5.7",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   },
   "prisma": {

@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { hashPassword } from "better-auth/crypto";
+import { createOutboxEvent } from "../lib/outbox";
 
 const prisma = new PrismaClient();
 
@@ -21,6 +22,7 @@ async function main() {
   await prisma.verification.deleteMany();
   await prisma.user.deleteMany();
   await prisma.organization.deleteMany();
+  // await prisma.outboxEvent.deleteMany(); // Will be available after migration
 
   // Hash the password once using Better Auth's hasher
   const hashedPassword = await hashPassword("password");
@@ -66,75 +68,134 @@ async function main() {
     { name: "Leo Robinson", email: "leo@globex.com", role: "member", canLogin: false },
   ];
 
-  // Create Acme users
+  // Create Acme users with outbox events
+  let acmeAdminId: string | null = null;
+
   for (const userData of acmeUsers) {
     const createdAt = randomDateInPast(30);
     const hasActivity = Math.random() > 0.3;
     const emailVerified = Math.random() > 0.2;
+    const isFirstAdmin = userData.role === "admin" && acmeAdminId === null;
 
-    const user = await prisma.user.create({
-      data: {
-        name: userData.name,
-        email: userData.email,
-        role: userData.role,
-        orgId: acmeOrg.id,
-        emailVerified,
-        createdAt,
-        lastActivityAt: hasActivity ? randomDateInPast(7) : null,
-      },
-    });
-
-    // Create account for login-enabled users
-    if (userData.canLogin) {
-      await prisma.account.create({
+    // Use transaction to ensure user + outbox event are created atomically
+    await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
         data: {
-          userId: user.id,
-          accountId: user.id,
-          providerId: "credential",
-          password: hashedPassword,
+          name: userData.name,
+          email: userData.email,
+          role: userData.role,
+          orgId: acmeOrg.id,
+          emailVerified,
+          createdAt,
+          lastActivityAt: hasActivity ? randomDateInPast(7) : null,
+          // First admin is system-created, others are created by admin
+          createdBy: isFirstAdmin ? null : acmeAdminId,
+          updatedBy: null,
+          deletedBy: null,
+          deletedAt: null,
         },
       });
-      console.log(`Created login account for: ${userData.email}`);
-    }
+
+      // Track first admin for audit trail
+      if (isFirstAdmin) {
+        acmeAdminId = user.id;
+      }
+
+      // Create outbox event for welcome email
+      await createOutboxEvent(tx, {
+        aggregateId: user.id,
+        eventType: 'user.created',
+        payload: {
+          userId: user.id,
+          email: user.email,
+          name: user.name,
+        },
+      });
+
+      // Create account for login-enabled users
+      if (userData.canLogin) {
+        await tx.account.create({
+          data: {
+            userId: user.id,
+            accountId: user.id,
+            providerId: "credential",
+            password: hashedPassword,
+          },
+        });
+        console.log(`Created login account for: ${userData.email}`);
+      }
+    });
   }
 
-  // Create Globex users
+  // Create Globex users with outbox events
+  let globexAdminId: string | null = null;
+
   for (const userData of globexUsers) {
     const createdAt = randomDateInPast(30);
     const hasActivity = Math.random() > 0.3;
     const emailVerified = Math.random() > 0.2;
+    const isFirstAdmin = userData.role === "admin" && globexAdminId === null;
 
-    const user = await prisma.user.create({
-      data: {
-        name: userData.name,
-        email: userData.email,
-        role: userData.role,
-        orgId: globexOrg.id,
-        emailVerified,
-        createdAt,
-        lastActivityAt: hasActivity ? randomDateInPast(7) : null,
-      },
-    });
-
-    // Create account for login-enabled users
-    if (userData.canLogin) {
-      await prisma.account.create({
+    // Use transaction to ensure user + outbox event are created atomically
+    await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
         data: {
-          userId: user.id,
-          accountId: user.id,
-          providerId: "credential",
-          password: hashedPassword,
+          name: userData.name,
+          email: userData.email,
+          role: userData.role,
+          orgId: globexOrg.id,
+          emailVerified,
+          createdAt,
+          lastActivityAt: hasActivity ? randomDateInPast(7) : null,
+          // First admin is system-created, others are created by admin
+          createdBy: isFirstAdmin ? null : globexAdminId,
+          updatedBy: null,
+          deletedBy: null,
+          deletedAt: null,
         },
       });
-      console.log(`Created login account for: ${userData.email}`);
-    }
+
+      // Track first admin for audit trail
+      if (isFirstAdmin) {
+        globexAdminId = user.id;
+      }
+
+      // Create outbox event for welcome email
+      await createOutboxEvent(tx, {
+        aggregateId: user.id,
+        eventType: 'user.created',
+        payload: {
+          userId: user.id,
+          email: user.email,
+          name: user.name,
+        },
+      });
+
+      // Create account for login-enabled users
+      if (userData.canLogin) {
+        await tx.account.create({
+          data: {
+            userId: user.id,
+            accountId: user.id,
+            providerId: "credential",
+            password: hashedPassword,
+          },
+        });
+        console.log(`Created login account for: ${userData.email}`);
+      }
+    });
   }
 
   const totalUsers = await prisma.user.count();
-  console.log(`Seeding complete! Created ${totalUsers} users.`);
+  const totalOutboxEvents = await (prisma as any).outboxEvent?.count() ?? 0;
+  console.log(`\nSeeding complete!`);
+  console.log(`  Created ${totalUsers} users`);
+  console.log(`  Created ${totalOutboxEvents} outbox events (for welcome emails)`);
   console.log("\nTest credentials:");
   console.log("  admin@acme.com / password");
   console.log("  admin@globex.com / password");
+  console.log("\nRun the outbox processor to send welcome emails:");
+  console.log("   npm run outbox:process");
 }
 
 main()

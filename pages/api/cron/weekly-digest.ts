@@ -11,9 +11,16 @@ import { createOutboxEvent } from "@/lib/outbox";
  * Usage:
  *   POST /api/cron/weekly-digest
  *   Authorization: Bearer <CRON_SECRET> (optional, for production)
+ *   Idempotency-Key: <unique-key> (optional, recommended for production)
+ *
+ * Idempotency:
+ *   If an Idempotency-Key header is provided, the same key will always return the same result.
+ *   This is the ONLY duplicate prevention mechanism - use it to prevent duplicate digest runs.
+ *   Recommended format: ISO week date (e.g., "2026-W07") or UUID for manual runs.
  *
  * For testing:
  *   curl -X POST http://localhost:3000/api/cron/weekly-digest
+ *   curl -X POST http://localhost:3000/api/cron/weekly-digest -H "Idempotency-Key: 2026-W07"
  */
 
 export default async function handler(
@@ -42,28 +49,27 @@ export default async function handler(
   // In development without CRON_SECRET: allow through for testing
 
   try {
-    // Check if we already created digest events recently (within last 6 days)
-    // This prevents accidental duplicate runs
-    const sixDaysAgo = new Date();
-    sixDaysAgo.setDate(sixDaysAgo.getDate() - 6);
+    // Check for idempotency key
+    const idempotencyKey = req.headers['idempotency-key'] as string | undefined;
 
-    const recentDigestEvent = await prisma.outboxEvent.findFirst({
-      where: {
-        eventType: 'digest.weekly',
-        createdAt: {
-          gte: sixDaysAgo,
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-
-    if (recentDigestEvent) {
-      return res.status(200).json({
-        message: "Digest events already created recently",
-        lastCreated: recentDigestEvent.createdAt,
+    // If idempotency key is provided, check if we've already processed this request
+    if (idempotencyKey) {
+      const existingBatch = await prisma.digestBatch.findUnique({
+        where: { idempotencyKey },
       });
+
+      if (existingBatch) {
+        // Return cached response for this idempotency key
+        return res.status(200).json({
+          message: existingBatch.status === 'completed'
+            ? "Digest events already created for this idempotency key"
+            : "Previous attempt with this idempotency key failed",
+          userCount: existingBatch.userCount,
+          status: existingBatch.status,
+          createdAt: existingBatch.createdAt,
+          idempotent: true,
+        });
+      }
     }
 
     // Get all active users (not soft-deleted)
@@ -85,8 +91,9 @@ export default async function handler(
       });
     }
 
-    // Create outbox events for all users in a transaction
+    // Create outbox events for all users and record batch in a transaction
     await prisma.$transaction(async (tx) => {
+      // Create outbox events for all users
       for (const user of users) {
         await createOutboxEvent(tx, {
           aggregateId: user.id,
@@ -98,14 +105,42 @@ export default async function handler(
           },
         });
       }
+
+      // Record this batch for idempotency tracking
+      await tx.digestBatch.create({
+        data: {
+          idempotencyKey: idempotencyKey || null,
+          userCount: users.length,
+          status: 'completed',
+        },
+      });
     });
 
     return res.status(200).json({
       message: "Weekly digest events created successfully",
       userCount: users.length,
+      idempotencyKey: idempotencyKey || undefined,
     });
   } catch (error) {
     console.error("Error creating weekly digest events:", error);
+
+    // Record failed batch if idempotency key was provided
+    const idempotencyKey = req.headers['idempotency-key'] as string | undefined;
+    if (idempotencyKey) {
+      try {
+        await prisma.digestBatch.create({
+          data: {
+            idempotencyKey,
+            userCount: 0,
+            status: 'failed',
+          },
+        });
+      } catch (batchError) {
+        // Ignore errors when recording failure (e.g., duplicate key)
+        console.error("Error recording failed batch:", batchError);
+      }
+    }
+
     return res.status(500).json({ error: "Internal server error" });
   }
 }

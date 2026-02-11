@@ -107,3 +107,14 @@ model OutboxEvent {
   @@index([processed, createdAt])
   @@index([eventType, processed])
 }
+
+// Tracks digest batch runs for idempotency
+model DigestBatch {
+  id              String   @id @default(uuid())
+  idempotencyKey  String?  @unique // Optional idempotency key from request
+  userCount       Int      // Number of users the digest was sent to
+  status          String   // "completed" or "failed"
+  createdAt       DateTime @default(now())
+
+  @@index([createdAt])
+}

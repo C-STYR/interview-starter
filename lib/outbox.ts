@@ -12,7 +12,8 @@ export type OutboxEventType =
   | 'user.updated'
   | 'user.deleted'
   | 'organization.created'
-  | 'organization.updated';
+  | 'organization.updated'
+  | 'digest.weekly';
 
 interface CreateOutboxEventParams {
   aggregateId: string;

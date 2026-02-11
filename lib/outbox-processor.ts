@@ -22,13 +22,25 @@ const eventHandlers: Record<string, EventHandler> = {
   'user.created': async (payload) => {
     console.log('Processing user.created event:', payload);
 
-    // in prod this might look like: 
+    // in prod this might look like:
     // await sendWelcomeEmail(payload.email, payload.name);
 
     // but for this example, we'll simulate the sending
     console.log(`Sending welcome email to ${payload.email}`);
     await new Promise(resolve => setTimeout(resolve, 1000));
     console.log(`Welcome email sent to ${payload.email}`);
+  },
+
+  'digest.weekly': async (payload) => {
+    console.log('Processing digest.weekly event:', payload);
+
+    // in prod this might look like:
+    // await sendWeeklyDigest(payload.email, payload.name, digestContent);
+
+    // but for this example, we'll simulate the sending
+    console.log(`Sending weekly digest to ${payload.email}`);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    console.log(`Weekly digest sent to ${payload.email}`);
   },
 
   // other example handlers which could be implemented using this pattern - anytime we need to dual write

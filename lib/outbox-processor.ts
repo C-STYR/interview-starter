@@ -6,9 +6,9 @@ import { PrismaClient } from '@prisma/client';
  * This worker polls the OutboxEvent table and processes unprocessed events.
  * It implements the Transactional Outbox Pattern for reliable event delivery.
  *
- * Usage:
- * - Run as a separate background process: `npm run outbox:process`
- * - Or import and call `startOutboxProcessor()` in your app startup
+ * I have set this up to run on app startup and poll every 5 seconds, 
+ * but the prod implementation would be dependent on a number of unknown factors
+ * surrounding expected volume and existing infra
  */
 
 const MAX_RETRIES = 3;
@@ -24,9 +24,8 @@ const eventHandlers: Record<string, EventHandler> = {
 
     // in prod this might look like: 
     // await sendWelcomeEmail(payload.email, payload.name);
-    // TODO - verify how this and user db write work
 
-    // but for this example, we'll simulate
+    // but for this example, we'll simulate the sending
     console.log(`Sending welcome email to ${payload.email}`);
     await new Promise(resolve => setTimeout(resolve, 1000));
     console.log(`Welcome email sent to ${payload.email}`);

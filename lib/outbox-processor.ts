@@ -15,11 +15,11 @@ const MAX_RETRIES = 3;
 const POLL_INTERVAL_MS = 5000; // Poll every 5 seconds
 const BATCH_SIZE = 10;
 
-type EventHandler = (payload: any) => Promise<void>;
+type EventHandler = (prisma: PrismaClient, payload: any) => Promise<void>;
 
 // Event handlers registry
 const eventHandlers: Record<string, EventHandler> = {
-  'user.created': async (payload) => {
+  'user.created': async (prisma, payload) => {
     console.log('Processing user.created event:', payload);
 
     // in prod this might look like:
@@ -29,9 +29,22 @@ const eventHandlers: Record<string, EventHandler> = {
     console.log(`Sending welcome email to ${payload.email}`);
     await new Promise(resolve => setTimeout(resolve, 1000));
     console.log(`Welcome email sent to ${payload.email}`);
+
+    // Write to audit log
+    await prisma.auditLog.create({
+      data: {
+        actor: 'system',
+        action: 'welcome_email_sent',
+        targetId: payload.userId,
+        metadata: JSON.stringify({
+          email: payload.email,
+          name: payload.name,
+        }),
+      },
+    });
   },
 
-  'digest.weekly': async (payload) => {
+  'digest.weekly': async (prisma, payload) => {
     console.log('Processing digest.weekly event:', payload);
 
     // in prod this might look like:
@@ -41,12 +54,25 @@ const eventHandlers: Record<string, EventHandler> = {
     console.log(`Sending weekly digest to ${payload.email}`);
     await new Promise(resolve => setTimeout(resolve, 500));
     console.log(`Weekly digest sent to ${payload.email}`);
+
+    // Write to audit log
+    await prisma.auditLog.create({
+      data: {
+        actor: 'system',
+        action: 'digest_email_sent',
+        targetId: payload.userId,
+        metadata: JSON.stringify({
+          email: payload.email,
+          name: payload.name,
+        }),
+      },
+    });
   },
 
   // other example handlers which could be implemented using this pattern - anytime we need to dual write
-  'user.updated': async (payload) => {},
-  'user.deleted': async (payload) => {},
-  'organization.created': async (payload) => {},
+  'user.updated': async (prisma, payload) => {},
+  'user.deleted': async (prisma, payload) => {},
+  'organization.created': async (prisma, payload) => {},
   // etc, etc
 };
 
@@ -81,7 +107,7 @@ async function processEvent(
 
   try {
     const payload = JSON.parse(event.payload);
-    await handler(payload);
+    await handler(prisma, payload);
 
     // Mark as successfully processed
     await prisma.outboxEvent.update({

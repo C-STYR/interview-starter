@@ -15,7 +15,14 @@ const MAX_RETRIES = 3;
 const POLL_INTERVAL_MS = 5000; // Poll every 5 seconds
 const BATCH_SIZE = 10;
 
-type EventHandler = (payload: any) => Promise<void>;
+type AuditLogData = {
+  actor: string;
+  action: string;
+  targetId?: string;
+  metadata?: Record<string, any>;
+} | null;
+
+type EventHandler = (payload: any) => Promise<AuditLogData>;
 
 // Event handlers registry
 const eventHandlers: Record<string, EventHandler> = {
@@ -29,6 +36,17 @@ const eventHandlers: Record<string, EventHandler> = {
     console.log(`Sending welcome email to ${payload.email}`);
     await new Promise(resolve => setTimeout(resolve, 1000));
     console.log(`Welcome email sent to ${payload.email}`);
+
+    // Return audit log data (will be written transactionally)
+    return {
+      actor: 'system',
+      action: 'welcome_email_sent',
+      targetId: payload.userId,
+      metadata: {
+        email: payload.email,
+        name: payload.name,
+      },
+    };
   },
 
   'digest.weekly': async (payload) => {
@@ -41,12 +59,23 @@ const eventHandlers: Record<string, EventHandler> = {
     console.log(`Sending weekly digest to ${payload.email}`);
     await new Promise(resolve => setTimeout(resolve, 500));
     console.log(`Weekly digest sent to ${payload.email}`);
+
+    // Return audit log data (will be written transactionally)
+    return {
+      actor: 'system',
+      action: 'digest_email_sent',
+      targetId: payload.userId,
+      metadata: {
+        email: payload.email,
+        name: payload.name,
+      },
+    };
   },
 
   // other example handlers which could be implemented using this pattern - anytime we need to dual write
-  'user.updated': async (payload) => {},
-  'user.deleted': async (payload) => {},
-  'organization.created': async (payload) => {},
+  'user.updated': async (payload) => null,
+  'user.deleted': async (payload) => null,
+  'organization.created': async (payload) => null,
   // etc, etc
 };
 
@@ -81,16 +110,31 @@ async function processEvent(
 
   try {
     const payload = JSON.parse(event.payload);
-    await handler(payload);
+    const auditLogData = await handler(payload);
 
-    // Mark as successfully processed
-    await prisma.outboxEvent.update({
-      where: { id: event.id },
-      data: {
-        processed: true,
-        processedAt: new Date(),
-        attempts: event.attempts + 1,
-      },
+    // Mark as successfully processed and write audit log in a single transaction
+    await prisma.$transaction(async (tx) => {
+      // Mark event as processed
+      await tx.outboxEvent.update({
+        where: { id: event.id },
+        data: {
+          processed: true,
+          processedAt: new Date(),
+          attempts: event.attempts + 1,
+        },
+      });
+
+      // Write audit log if handler returned data
+      if (auditLogData) {
+        await tx.auditLog.create({
+          data: {
+            actor: auditLogData.actor,
+            action: auditLogData.action,
+            targetId: auditLogData.targetId || null,
+            metadata: auditLogData.metadata ? JSON.stringify(auditLogData.metadata) : null,
+          },
+        });
+      }
     });
 
     console.log(`Event ${event.id} (${event.eventType}) processed successfully`);

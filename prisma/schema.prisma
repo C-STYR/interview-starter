@@ -118,3 +118,17 @@ model DigestBatch {
 
   @@index([createdAt])
 }
+
+// General audit trail for user and system actions
+model AuditLog {
+  id        String   @id @default(uuid())
+  actor     String   // User ID or "system" for automated actions
+  action    String   // Action performed (e.g., "welcome_email_sent", "digest_email_sent")
+  targetId  String?  // ID of the affected entity (e.g., user ID who received email)
+  metadata  String?  // JSON string with additional context
+  createdAt DateTime @default(now())
+
+  @@index([actor, createdAt])
+  @@index([action, createdAt])
+  @@index([targetId])
+}

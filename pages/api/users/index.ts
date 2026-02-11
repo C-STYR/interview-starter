@@ -83,6 +83,20 @@ export default async function handler(
         },
       });
 
+      // Create audit log entry for user creation
+      await tx.auditLog.create({
+        data: {
+          actor: currentUser.id,
+          action: 'user_created',
+          targetId: newUser.id,
+          metadata: JSON.stringify({
+            email: newUser.email,
+            name: newUser.name,
+            role: newUser.role,
+          }),
+        },
+      });
+
       return newUser;
     });
 

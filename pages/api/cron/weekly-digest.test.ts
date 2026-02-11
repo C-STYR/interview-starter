@@ -316,11 +316,9 @@ describe('POST /api/cron/weekly-digest', () => {
   });
 
   it('should require CRON_SECRET when set', async () => {
-    // Set CRON_SECRET
-    const originalCronSecret = process.env.CRON_SECRET;
-    const originalNodeEnv = process.env.NODE_ENV;
-    process.env.CRON_SECRET = 'test-secret';
-    process.env.NODE_ENV = 'production';
+    // Set CRON_SECRET and NODE_ENV via vi.stubEnv to avoid read-only TS error
+    vi.stubEnv('CRON_SECRET', 'test-secret');
+    vi.stubEnv('NODE_ENV', 'production');
 
     const { default: handler } = await import('./weekly-digest');
 
@@ -340,15 +338,11 @@ describe('POST /api/cron/weekly-digest', () => {
     expect(res.status).toHaveBeenCalledWith(401);
     expect(res.json).toHaveBeenCalledWith({ error: 'Unauthorized' });
 
-    // Cleanup
-    process.env.CRON_SECRET = originalCronSecret;
-    process.env.NODE_ENV = originalNodeEnv;
+    vi.unstubAllEnvs();
   });
 
   it('should accept valid CRON_SECRET', async () => {
-    // Set CRON_SECRET
-    const originalCronSecret = process.env.CRON_SECRET;
-    process.env.CRON_SECRET = 'test-secret';
+    vi.stubEnv('CRON_SECRET', 'test-secret');
 
     const { default: handler } = await import('./weekly-digest');
 
@@ -369,16 +363,12 @@ describe('POST /api/cron/weekly-digest', () => {
 
     expect(res.status).toHaveBeenCalledWith(200);
 
-    // Cleanup
-    process.env.CRON_SECRET = originalCronSecret;
+    vi.unstubAllEnvs();
   });
 
   it('should work without CRON_SECRET in development', async () => {
-    // Ensure CRON_SECRET is not set
-    const originalCronSecret = process.env.CRON_SECRET;
-    const originalNodeEnv = process.env.NODE_ENV;
-    delete process.env.CRON_SECRET;
-    process.env.NODE_ENV = 'development';
+    vi.stubEnv('CRON_SECRET', '');
+    vi.stubEnv('NODE_ENV', 'development');
 
     const { default: handler } = await import('./weekly-digest');
 
@@ -397,8 +387,6 @@ describe('POST /api/cron/weekly-digest', () => {
 
     expect(res.status).toHaveBeenCalledWith(200);
 
-    // Cleanup
-    process.env.CRON_SECRET = originalCronSecret;
-    process.env.NODE_ENV = originalNodeEnv;
+    vi.unstubAllEnvs();
   });
 });

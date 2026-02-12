@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "audit:show": "tsx scripts/show-audit-log.ts",
+    "users:show": "tsx scripts/show-users.ts",
     "outbox:process": "tsx scripts/run-outbox-processor.ts",
     "reseed": "npx prisma migrate reset --force",
     "test": "vitest run && rm -f prisma/test-*.db prisma/test-*.db-journal",

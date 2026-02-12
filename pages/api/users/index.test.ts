@@ -346,7 +346,7 @@ describe('GET /api/users', () => {
     expect(res.status).toHaveBeenCalledWith(200);
 
     // Get the returned users
-    const returnedUsers = res.json.mock.calls[0][0];
+    const returnedUsers = (res.json as ReturnType<typeof vi.fn>).mock.calls[0][0];
 
     // Should return user1 and user2 (both in org1), but not user3 (org2)
     expect(returnedUsers).toHaveLength(2);
@@ -381,7 +381,7 @@ describe('GET /api/users', () => {
 
     await handler(req, res);
 
-    const returnedUsers = res.json.mock.calls[0][0];
+    const returnedUsers = (res.json as ReturnType<typeof vi.fn>).mock.calls[0][0];
 
     // Should only return user1 (user2 is soft-deleted)
     expect(returnedUsers).toHaveLength(1);
@@ -414,7 +414,7 @@ describe('GET /api/users', () => {
 
     await handler(req, res);
 
-    const returnedUsers = res.json.mock.calls[0][0];
+    const returnedUsers = (res.json as ReturnType<typeof vi.fn>).mock.calls[0][0];
 
     // Should return both user1 and user2
     expect(returnedUsers).toHaveLength(2);

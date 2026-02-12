@@ -19,7 +19,7 @@ let stopProcessor: (() => Promise<void>) | null = null;
 
 // Start the processor
 startOutboxProcessor(prisma)
-  .then((cleanup) => {
+  .then((cleanup) => { // "cleanup" is the cleanup function returned by startOutboxProcessor
     stopProcessor = cleanup;
   })
   .catch((error) => {

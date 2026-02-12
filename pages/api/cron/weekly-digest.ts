@@ -14,7 +14,7 @@ import { createOutboxEvent } from "@/lib/outbox";
  *   Idempotency-Key: <unique-key> (optional, recommended for production)
  *
  * Idempotency:
- *   If an Idempotency-Key header is provided, the same key will always return the same result.
+ *   If an Idempotency-Key header is provided, the same key will always return the previous result with that key
  *   This is the ONLY duplicate prevention mechanism - use it to prevent duplicate digest runs.
  *   Recommended format: ISO week date (e.g., "2026-W07") or UUID for manual runs.
  *
@@ -42,7 +42,7 @@ export default async function handler(
       return res.status(401).json({ error: "Unauthorized" });
     }
   } else if (process.env.NODE_ENV === 'production') {
-    // In production, CRON_SECRET must be set
+    // In prod, CRON_SECRET must be set
     console.error('CRON_SECRET not set in production environment');
     return res.status(500).json({ error: "Server configuration error" });
   }
@@ -59,7 +59,7 @@ export default async function handler(
       });
 
       if (existingBatch) {
-        // Return cached response for this idempotency key
+        // Return the previously recorded result for this idempotency key, don't send emails
         return res.status(200).json({
           message: existingBatch.status === 'completed'
             ? "Digest events already created for this idempotency key"

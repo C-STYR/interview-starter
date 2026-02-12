@@ -9,7 +9,7 @@ import {
   assertOutboxEventExists,
   countOutboxEvents,
 } from '@/lib/test-utils/test-helpers';
-import { createOutboxEvent, createUserWithEvent } from './outbox';
+import { createOutboxEvent } from './outbox';
 
 describe('createOutboxEvent', () => {
   let prisma: PrismaClient;
@@ -172,99 +172,3 @@ describe('createOutboxEvent', () => {
   });
 });
 
-describe('createUserWithEvent', () => {
-  let prisma: PrismaClient;
-  let testData: any;
-
-  beforeEach(async () => {
-    prisma = await createTestDatabase();
-    testData = await seedTestData(prisma);
-  });
-
-  afterEach(async () => {
-    await cleanupTestDatabase(prisma);
-  });
-
-  it('should create user and event atomically', async () => {
-    const user = await createUserWithEvent(prisma, {
-      email: 'atomic@example.com',
-      name: 'Atomic User',
-      orgId: testData.orgs.org1.id,
-    });
-
-    expect(user).toBeTruthy();
-    expect(user.email).toBe('atomic@example.com');
-
-    // Verify outbox event was created
-    await assertOutboxEventExists(prisma, {
-      aggregateId: user.id,
-      eventType: 'user.created',
-      payloadContains: {
-        userId: user.id,
-        email: 'atomic@example.com',
-        name: 'Atomic User',
-      },
-    });
-  });
-
-  it('should use default role if not provided', async () => {
-    const user = await createUserWithEvent(prisma, {
-      email: 'defaultrole@example.com',
-      name: 'Default Role User',
-      orgId: testData.orgs.org1.id,
-    });
-
-    // Prisma defaults to "member" based on schema
-    expect(user.role).toBeDefined();
-  });
-
-  it('should accept custom role', async () => {
-    const user = await createUserWithEvent(prisma, {
-      email: 'admin@example.com',
-      name: 'Admin User',
-      role: 'admin',
-      orgId: testData.orgs.org1.id,
-    });
-
-    expect(user.role).toBe('admin');
-  });
-
-  it('should rollback both user and event if error occurs', async () => {
-    const userCountBefore = await prisma.user.count();
-    const eventCountBefore = await countOutboxEvents(prisma, {});
-
-    // Mock a failure by using an invalid email (duplicate)
-    try {
-      await createUserWithEvent(prisma, {
-        email: testData.users.user1.email, // Duplicate email
-        name: 'Duplicate User',
-        orgId: testData.orgs.org1.id,
-      });
-    } catch (error) {
-      // Expected to fail due to unique constraint
-    }
-
-    const userCountAfter = await prisma.user.count();
-    const eventCountAfter = await countOutboxEvents(prisma, {});
-
-    // Neither user nor event should have been created
-    expect(userCountAfter).toBe(userCountBefore);
-    expect(eventCountAfter).toBe(eventCountBefore);
-  });
-
-  it('should work without orgId', async () => {
-    const user = await createUserWithEvent(prisma, {
-      email: 'noorg@example.com',
-      name: 'No Org User',
-    });
-
-    expect(user).toBeTruthy();
-    expect(user.orgId).toBeNull();
-
-    // Verify event was still created
-    await assertOutboxEventExists(prisma, {
-      aggregateId: user.id,
-      eventType: 'user.created',
-    });
-  });
-});

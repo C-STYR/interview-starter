@@ -1,12 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 
-/**
- * Outbox helper functions for the Transactional Outbox Pattern
- *
- * This ensures reliable event processing by storing events in the same
- * database transaction as your business logic.
- */
-
+// example types - only user.created and digest.weekly are implemented...
 export type OutboxEventType =
   | 'user.created'
   | 'user.updated'
@@ -26,18 +20,11 @@ type PrismaTransactionClient = Omit<PrismaClient, '$connect' | '$disconnect' | '
 
 /**
  * Creates an outbox event. Use this within a Prisma transaction.
- *
- * @example
- * ```typescript
- * await prisma.$transaction([
- *   prisma.user.create({ data: userData }),
- *   createOutboxEvent(prisma, {
- *     aggregateId: user.id,
- *     eventType: 'user.created',
- *     payload: { email: user.email, name: user.name }
- *   })
- * ]);
- * ```
+ * 
+ * This function directly supports the Transactional Outbox 
+ * Pattern by allowing you to create an event within the same transaction 
+ * as your business logic, ensuring that the event is only 
+ * created if the transaction commits successfully.
  */
 export function createOutboxEvent(
   prisma: PrismaClient | PrismaTransactionClient,
@@ -49,36 +36,5 @@ export function createOutboxEvent(
       eventType: params.eventType,
       payload: JSON.stringify(params.payload),
     },
-  });
-}
-
-/**
- * Helper to create a user with an outbox event in a single transaction
- */
-export async function createUserWithEvent(
-  prisma: PrismaClient,
-  userData: {
-    email: string;
-    name: string;
-    role?: string;
-    orgId?: string;
-  }
-) {
-  return await prisma.$transaction(async (tx) => {
-    const user = await tx.user.create({
-      data: userData,
-    });
-
-    await createOutboxEvent(tx, {
-      aggregateId: user.id,
-      eventType: 'user.created',
-      payload: {
-        userId: user.id,
-        email: user.email,
-        name: user.name,
-      },
-    });
-
-    return user;
   });
 }

@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { execSync } from 'child_process';
 import { randomBytes } from 'crypto';
-import { unlinkSync, existsSync } from 'fs';
+
 import path from 'path';
 
 /**
@@ -11,8 +11,6 @@ import path from 'path';
  * Each test gets a fresh database with migrations applied.
  */
 
-// Track created databases for cleanup
-const createdDatabases: string[] = [];
 
 /**
  * Create an isolated test database with migrations applied
@@ -24,9 +22,6 @@ export async function createTestDatabase(): Promise<PrismaClient> {
   const dbName = `test-${randomBytes(8).toString('hex')}.db`;
   const dbPath = path.resolve(__dirname, '../../prisma', dbName);
   const dbUrl = `file:${dbPath}`;
-
-  // Track for cleanup
-  createdDatabases.push(dbPath);
 
   // Set DATABASE_URL for Prisma CLI
   process.env.DATABASE_URL = dbUrl;
@@ -63,26 +58,6 @@ export async function cleanupTestDatabase(prisma: PrismaClient): Promise<void> {
   await prisma.$disconnect();
 }
 
-/**
- * Clean up all test databases (called after all tests)
- */
-export function cleanupAllTestDatabases(): void {
-  for (const dbPath of createdDatabases) {
-    try {
-      if (existsSync(dbPath)) {
-        unlinkSync(dbPath);
-      }
-      // Also remove journal files if they exist
-      const journalPath = `${dbPath}-journal`;
-      if (existsSync(journalPath)) {
-        unlinkSync(journalPath);
-      }
-    } catch (error) {
-      console.error(`Failed to delete test database ${dbPath}:`, error);
-    }
-  }
-  createdDatabases.length = 0;
-}
 
 /**
  * Seed test data - creates organizations and users for testing
@@ -173,27 +148,3 @@ export async function seedTestData(prisma: PrismaClient) {
   };
 }
 
-/**
- * Create a test session for a user (for authenticated API requests)
- *
- * @param prisma - Prisma client
- * @param userId - User ID to create session for
- * @returns Session token
- */
-export async function createTestSession(
-  prisma: PrismaClient,
-  userId: string
-): Promise<string> {
-  const token = randomBytes(32).toString('hex');
-  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7); // 7 days
-
-  await prisma.session.create({
-    data: {
-      userId,
-      token,
-      expiresAt,
-    },
-  });
-
-  return token;
-}

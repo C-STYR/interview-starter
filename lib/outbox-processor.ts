@@ -34,7 +34,7 @@ const eventHandlers: Record<string, EventHandler> = {
 
     // but for this example, we'll simulate the sending
     console.log(`Sending welcome email to ${payload.email}`);
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 10));
     console.log(`Welcome email sent to ${payload.email}`);
 
     // Return audit log data (will be written transactionally)
@@ -57,7 +57,7 @@ const eventHandlers: Record<string, EventHandler> = {
 
     // but for this example, we'll simulate the sending
     console.log(`Sending weekly digest to ${payload.email}`);
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 10));
     console.log(`Weekly digest sent to ${payload.email}`);
 
     // Return audit log data (will be written transactionally)
@@ -193,6 +193,7 @@ async function pollAndProcess(prisma: PrismaClient) {
       console.log(`Processing ${events.length} outbox events...`);
 
       // Process events sequentially to avoid overwhelming external services
+      // this will not scale but works for this example
       for (const event of events) {
         await processEvent(prisma, event);
       }

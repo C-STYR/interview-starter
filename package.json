@@ -7,8 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "audit:show": "tsx scripts/show-audit-log.ts",
     "outbox:process": "tsx scripts/run-outbox-processor.ts",
-    "test": "vitest run",
+    "reseed": "npx prisma migrate reset --force",
+    "test": "vitest run && rm -f prisma/test-*.db prisma/test-*.db-journal",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage"
